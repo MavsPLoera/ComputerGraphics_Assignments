@@ -1,6 +1,6 @@
 # Loera, Preston
 # 1001_889_535
-# 2024_10_16
+# 2024_10_18
 # Assignment_03_01
 
 import numpy as np
@@ -276,7 +276,7 @@ class cl_world:
 class camera:
     verticies = np.array([], dtype=float)
 
-    def __init__(self, name = "", type = "parallel", vrp = np.array([0, 0, 0, 1]), vpn = np.array([0, 0, 1, 1]), vup = np.array([0, 1, 0, 1]), prp = np.array([0, 0, 1, 1]), viewVol = np.array([-1, 1, -1, 1, -1, 1]), viewPort = np.array([0.1, 0.1, .4, .4])):
+    def __init__(self, name, type, vrp, vpn, vup, prp, viewVol, viewPort):
         self.name = name
         self.type = type
         self.vrp = vrp
@@ -296,14 +296,15 @@ class camera:
 
     #Just used for debugging not really used in program as of now.
     def printCameraInfo(self):
-        print(self.name)
-        print(self.type)
-        print(self.vrp)
-        print(self.vpn)
-        print(self.vup)
-        print(self.viewVol)
-        print(self.viewPort)
-        print(self.composite)
+        print("Camera name: \n", self.name)
+        print("Camera type: \n", self.type)
+        print("Camera vrp: \n", self.vrp)
+        print("Camera vpn: \n", self.vpn)
+        print("Camera vup: \n",self.vup)
+        print("Camera prp: \n",self.prp)
+        print("Camera viewVolume: \n",self.viewVol)
+        print("Camera viewPort: \n",self.viewPort)
+        print("Camera composite: \n", self.composite)
 
     #Calculate the composite matrix of the provided camera values. (Most likely will need to change the function depending on camera type.)
     def calculateComposite(self):
@@ -424,40 +425,58 @@ class cl_camera_panel:
             if(line == 'c\n'):
                 indexs.append(i)
 
-        '''Get indexs by reading the lines of the file to find where "c" is since we know the file format should be the same we can + to the index to get certain things to define our camera(s)'''
+        '''
+        Get indexs by reading the lines of the file to find where "c" is since we know the file format should be the same we can + to the index to get certain things to define our camera(s)
+        If the parameters in the line are not equal the amount we expecting we. send the default values to the camera constructor.
+        '''
         for i in indexs:
-            #print(cameraFileLines[i + 1],cameraFileLines[i + 2],cameraFileLines[i + 3],cameraFileLines[i + 4], cameraFileLines[i + 5],cameraFileLines[i + 6],cameraFileLines[i + 7],cameraFileLines[i + 8])
+            #print(cameraFileLines[i + 1],cameraFileLines[i + 2],cameraFileLines[i + 3],cameraFileLines[i + 4], cameraFileLines[i + 5],cameraFileLines[i + 6],cameraFileLines[i + 7],cameraFileLines[i + 8]) #For Debugging
 
             #Take first and second line after the c and define the name. takes the "c camera_name\n" removes the new line and makes new string after the 2nd character "camera_name". Same for camera type
             cameraName = cameraFileLines[i + 1].strip()[2:]
             cameraType = cameraFileLines[i + 2].strip()[2:]
+            if(cameraName == ""):
+                cameraType = "parallel"
+
+            vrp = np.array([0, 0, 0, 1], dtype=float)
+            vpn = np.array([0, 0, 1, 1], dtype=float)
+            vup = np.array([0, 1, 0, 1], dtype=float)
+            prp = np.array([0, 0, 1, 1], dtype=float)
+            viewVolume = np.array([-1, 1, -1, 1, -1, 1], dtype=float)
+            viewPort = np.array([0.1, 0.1, 0.4, 0.4], dtype=float)
 
             #Rest of the lines after the first 2 are similar in the steps we take.
             #Strip and split the line based on spaces to be able to create a list from the line. 
             #We then convert that list into a np.array to make it easy for matrix manipulation.
             vrpLine = cameraFileLines[i + 3]
             vrpLine = vrpLine.strip().split()
-            vrp = np.array([vrpLine[1], vrpLine[2], vrpLine[3],1], dtype = float)
+            if len(vrpLine) == 4:
+                vrp = np.array([vrpLine[1], vrpLine[2], vrpLine[3],1], dtype = float)
             
             vpnLine = cameraFileLines[i + 4]
             vpnLine = vpnLine.strip().split()
-            vpn = np.array([vpnLine[1], vpnLine[2], vpnLine[3],1], dtype = float)
+            if len(vpnLine) == 4:
+                vpn = np.array([vpnLine[1], vpnLine[2], vpnLine[3],1], dtype = float)
 
             vupLine = cameraFileLines[i + 5]
             vupLine = vupLine.strip().split()
-            vup = np.array([vupLine[1], vupLine[2], vupLine[3],1], dtype = float)
+            if len(vupLine) == 4:
+                vup = np.array([vupLine[1], vupLine[2], vupLine[3],1], dtype = float)
 
             prpLine = cameraFileLines[i + 6]
             prpLine = prpLine.strip().split()
-            prp = np.array([prpLine[1], prpLine[2], prpLine[3],1], dtype = float)
+            if len(prpLine) == 4:
+                prp = np.array([prpLine[1], prpLine[2], prpLine[3],1], dtype = float)
 
             viewVolumeLine = cameraFileLines[i + 7]
             viewVolumeLine = viewVolumeLine.strip().split()
-            viewVolume = np.array([viewVolumeLine[1], viewVolumeLine[2], viewVolumeLine[3], viewVolumeLine[4], viewVolumeLine[5], viewVolumeLine[6]], dtype = float)
+            if len(viewVolumeLine) == 7:
+                viewVolume = np.array([float(viewVolumeLine[1]), float(viewVolumeLine[2]), float(viewVolumeLine[3]), float(viewVolumeLine[4]), float(viewVolumeLine[5]), float(viewVolumeLine[6])], dtype=float)
 
             viewPortLine = cameraFileLines[i + 8]
             viewPortLine = viewPortLine.strip().split()
-            viewPort = np.array([viewPortLine[1], viewPortLine[2], viewPortLine[3], viewPortLine[4]], dtype = float)
+            if len(viewPortLine) == 5:
+                viewPort = np.array([viewPortLine[1], viewPortLine[2], viewPortLine[3], viewPortLine[4]], dtype = float)
 
             cl_world.cameras.append(camera(cameraName, cameraType, vrp, vpn, vup, prp, viewVolume, viewPort))
 
@@ -524,9 +543,6 @@ class cl_camera_panel:
         dY = (newVRP[1] - prevVRP[1]) / steps
         dZ = (newVRP[2] - prevVRP[2]) / steps
 
-        #Fix this. Weird behavior when steps is > 1 and also object is not moving
-        #Not applying the new vrp to the camera?
-        #print(cl_world.cameras[cameraToFly].composite)
         for steps in range(steps):
             cl_world.cameras[cameraToFly].vrp[0] = cl_world.cameras[cameraToFly].vrp[0] + dX
             cl_world.cameras[cameraToFly].vrp[1] = cl_world.cameras[cameraToFly].vrp[1] + dY
