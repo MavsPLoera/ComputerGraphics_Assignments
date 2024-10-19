@@ -1,6 +1,6 @@
 # Loera, Preston
 # 1001_889_535
-# 2024_10_18
+# 2024_10_19
 # Assignment_03_01
 
 import numpy as np
@@ -328,8 +328,8 @@ class camera:
                         [0,c/temp_denom,-b/temp_denom,0],
                         [0,b/temp_denom,c/temp_denom,0],
                         [0,0,0,1]])
-        vpnP = self.vpn.dot(Rx)
-        vupP = self.vup.dot(Rx)
+        vupP = Rx.dot(self.vup)
+        vpnP = Rx.dot(self.vpn)
         CM = Rx.dot(vrpTranslation)
 
         #Step 3.) Align VPN with z-axis
