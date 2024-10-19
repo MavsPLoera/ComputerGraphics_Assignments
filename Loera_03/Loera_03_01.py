@@ -346,7 +346,7 @@ class camera:
                         [a/temp_denom,0,c/temp_denom,0],
                         [0,0,0,1]])
         CM = Ry.dot(CM)
-        vupP = vupP.dot(Ry)
+        vupP = Ry.dot(vupP)
 
         #Step 4.) Align VUP with y-axis
         a,b,c,w = np.ravel(vupP)
@@ -357,11 +357,12 @@ class camera:
                         [0,0,1,0],
                         [0,0,0,1]])
         else:
-            Rz = np.array([[b/temp_denom,0,-a/temp_denom,0],
+            Rz = np.array([[b/temp_denom,-a/temp_denom,0,0],
                         [a/temp_denom,b/temp_denom,0,0],
                         [0,0,1,0],
                         [0,0,0,1]])
         CM = Rz.dot(CM)
+        print(CM)
 
         #Get DOP (DOP = CW - PRP)
         CW = np.array([((self.viewVol[1] + self.viewVol[0])/2) - self.prp[0], ((self.viewVol[3] + self.viewVol[2])/2) - self.prp[1], 0 - self.prp[3]])
@@ -396,6 +397,7 @@ class camera:
                       [0, 0, sz, 0],
                       [0, 0, 0, 1]])
         CM = S.dot(CM)
+        print(CM)
 
         return CM
 
