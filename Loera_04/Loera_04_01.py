@@ -1,6 +1,6 @@
 # Loera, Preston
 # 1001_889_535
-# 2024_10_24
+# 2024_11_01
 # Assignment_04_01
 
 import numpy as np
@@ -785,10 +785,11 @@ class cl_camera_panel:
         dY = (newVRP[1] - prevVRP[1]) / steps
         dZ = (newVRP[2] - prevVRP[2]) / steps
 
+        print()
         for steps in range(steps):
-            cl_world.cameras[cameraToFly].vrp[0] = cl_world.cameras[cameraToFly].vrp[0] + dX
-            cl_world.cameras[cameraToFly].vrp[1] = cl_world.cameras[cameraToFly].vrp[1] + dY
-            cl_world.cameras[cameraToFly].vrp[2] = cl_world.cameras[cameraToFly].vrp[2] + dZ
+            cl_world.cameras[cameraToFly].vrp[0] = prevVRP[0] + (dX * (steps + 1))
+            cl_world.cameras[cameraToFly].vrp[1] = prevVRP[1] + (dY * (steps + 1))
+            cl_world.cameras[cameraToFly].vrp[2] = prevVRP[2] + (dZ * (steps + 1))
             cl_world.cameras[cameraToFly].composite = cl_world.cameras[cameraToFly].calculateComposite()
             self.master.draw_objects()
             self.master.canvas.update()
