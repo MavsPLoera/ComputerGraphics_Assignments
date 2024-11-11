@@ -126,6 +126,11 @@ class cl_world:
         cl_world.verticies = cl_world.verticies.reshape(-1, 4)
         cl_world.faces = cl_world.faces.reshape(-1, 3)
 
+        print((cl_world.patches.size / 64))
+        if((cl_world.patches.size / 64) > CONST_MAX_PATCHES):
+            print("Patches loaded in exceed 100.")
+            exit()
+
         file.close()
 
     # When 'r' is pressed, update the status label
