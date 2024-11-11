@@ -1,4 +1,4 @@
-These assignments are for my class CSE-43030 for Dr. Kamangar
+These assignments are for my class CSE-4303 for Dr. Kamangar
 
 Each asignment implements some functionality that builds on the previous iteration
 
