@@ -1,7 +1,7 @@
 # Loera, Preston
 # 1001_889_535
-# 2024_11_01
-# Assignment_04_01
+# 2024_11_15
+# Assignment_05_01
 
 import numpy as np
 import tkinter as tk
@@ -126,7 +126,7 @@ class cl_world:
         cl_world.verticies = cl_world.verticies.reshape(-1, 4)
         cl_world.faces = cl_world.faces.reshape(-1, 3)
 
-        print((cl_world.patches.size / 64))
+        #print((cl_world.patches.size / 64))
         if((cl_world.patches.size / 64) > CONST_MAX_PATCHES):
             print("Patches loaded in exceed 100.")
             exit()
@@ -199,8 +199,10 @@ class cl_world:
                     self.canvas.create_line(self.calculateX(line3[0], Sx, vminX), self.calculateY(line3[1], Sy, vminY), 
                                             self.calculateX(line3[3], Sx, vminX), self.calculateY(line3[4], Sy, vminY))  
 
+            #Send points for a patch to calculate patch, get returned triangles and render them on canvas.
             for patch in camera.patches:
-                #Send points for a patch to calculate patch, get returned triangles and render them on canvas.
+
+                '''Fix patch clipping, lines being deleted instead of clipped for some planes'''
                 triangles = self.calculatePatch(patch)
 
                 for triangle in triangles:
@@ -274,6 +276,7 @@ class cl_world:
                 Py = vMat @ bezierMatrixTranspose @ Gy @ bezierMatrix @ uMat
                 Pz = vMat @ bezierMatrixTranspose @ Gz @ bezierMatrix @ uMat
 
+                #Could change the way the data structure is appended to, to make it easier for understanding on how to get the 4 points
                 points.append([Px[0][0], Py[0][0], Pz[0][0]])
 
         for i in range(bezierResolution):
@@ -735,6 +738,8 @@ class perspectiveCamera(Camera):
         #Get location codes of both points passed in
         code1 = self.getPointLocationCode(x0, y0, z0)
         code2 = self.getPointLocationCode(x1, y1, z1)
+        smallestT = 9999.
+        t = 9999.
         acceptLine = False
 
         while True:
@@ -751,9 +756,9 @@ class perspectiveCamera(Camera):
                 else:
                     outsideCode = code1
                 
-                # Calculate intersection of point outside viewvolume. Need to keep in mind of the denominator being 0. If it is, we will calculate the next plane.
+                # Calculate intersection of point outside viewvolume
                 if outsideCode & FRONT:
-                    if z1 != z0: 
+                    if z1 != z0:
                         t = (1 - z0) / (z1 - z0)
                     else:
                         break 
@@ -763,40 +768,40 @@ class perspectiveCamera(Camera):
                     else:
                         break
                 elif outsideCode & LEFT:
-                    denom = (x1 - x0 + z1 - z0)
+                    denom = (x1 - x0 + (z1 - z0))
                     if denom != 0:
                         t = (-(z0) - x0) / denom
                     else:
                         break
                 elif outsideCode & RIGHT:
-                    denom = (x1 - x0 - z1 - z0)
+                    denom = (x1 - x0 - (z1 - z0))
                     if denom != 0:
                         t = (z0 - x0) / denom
                     else:
                         break
                 elif outsideCode & BELOW:
-                    denom = (y1 - y0 + z1 - z0)
+                    denom = (y1 - y0 + (z1 - z0))
                     if denom != 0:
                         t = (-(z0) - y0) / denom
                     else:
                         break
                 elif outsideCode & ABOVE:
-                    denom = (y1 - y0 - z1 - z0)
+                    denom = (y1 - y0 - (z1 - z0))
                     if denom != 0:
                         t = (z0 - y0) / denom
                     else:
                         break
 
-                #Validate t to see if it is between 0 and 1
-                if not(0 <= t <= 1): 
+                # Ensure that t is between 0 and 1
+                if not(0 <= t <= 1):
                     break
 
-                # Calculate new line with intersection point
+                # Update the point with the new intersection
                 xt = x0 + (t * (x1 - x0))
                 yt = y0 + (t * (y1 - y0))
                 zt = z0 + (t * (z1 - z0))
 
-                #Apply new intersection to whatever outside point was selected.
+                # Apply new intersection to whatever outside point was selected
                 if outsideCode == code1:  # Point 1 is outside
                     x0, y0, z0 = xt, yt, zt
                     code1 = self.getPointLocationCode(x0, y0, z0)
