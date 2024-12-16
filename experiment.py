@@ -11,6 +11,13 @@ from abc import ABC, abstractmethod
 
 bezierResolution = 2 #Value is 2 by default until file is read
 CONST_MAX_PATCHES = 100
+#Create bezier matrix for patches
+BEZIER_MATRIX = np.array([[-1, 3, -3, 1],
+                          [3, -6, 3, 0],
+                          [-3, 3, 0, 0],
+                          [1, 0, 0, 0]])
+
+BEZIER_MATRIX_T = np.transpose(BEZIER_MATRIX)
 
 #Region codes for clipping parallel and perspective. Same codes just different meaning for clipping.
 INSIDE = 0b000000
@@ -94,11 +101,14 @@ class cl_world:
 
         #assume we have data already loaded if there is data in world coord
         if(np.size(cl_world.verticies) != 0):
-            cl_world.faces = np.array([], dtype=int)
-            cl_world.verticies = np.array([], dtype=float)
+            cl_world.faces = np.empty([0, 3], dtype = int)
+            cl_world.verticies = np.empty([0, 4], dtype = float)
+            cl_world.patches = np.empty((0, 16, 4), dtype=float)
 
+        #Used for making up patches for bezier surfaces. Each bezier patch has 16 b lines. 
         temp = np.array([], dtype=float)
         pointCount = 0
+
         for line in fileLines: #Set fileData to loaded vectices and faces (Can probably change this into verticies and faces arrays)
             line = line.strip().split()
             if(line == []):
@@ -126,9 +136,12 @@ class cl_world:
         cl_world.verticies = cl_world.verticies.reshape(-1, 4)
         cl_world.faces = cl_world.faces.reshape(-1, 3)
 
-        #print((cl_world.patches.size / 64))
+        #if patches loaded in exceed 100 assume do not load points and exit program. 
         if((cl_world.patches.size / 64) > CONST_MAX_PATCHES):
             print("Patches loaded in exceed 100.")
+            cl_world.faces = np.empty([0, 3], dtype = int)
+            cl_world.verticies = np.empty([0, 4], dtype = float)
+            cl_world.patches = np.empty((0, 16, 4), dtype=float)
             exit()
 
         file.close()
@@ -142,8 +155,6 @@ class cl_world:
             bezierResolution = bezierResolution - 1 
             self.draw_objects(event)
 
-        #print(bezierResolution)
-
     # When 'R' is pressed, update the status label
     def R_key_pressed_callback(self, event):
         global bezierResolution
@@ -153,36 +164,32 @@ class cl_world:
             bezierResolution = bezierResolution + 1
             self.draw_objects(event)
 
-        #print(bezierResolution) 
-
     def draw_objects(self,event=None):
         if((cl_world.verticies.size == 0) and (cl_world.patches.size == 0)):
             return
 
         self.canvas.delete('all') #Clear canvas before drawing
-
-        #Apply loaded in verticies to each composite camera matrix.
-        #Each camera has a copy of the verticies that are loaded in. so they dont have to be realligned every loop for each camera cordinate system.
-        for camera in cl_world.cameras:
-            camera.applyComposite()
+        XworldCoordinates = (cl_world.worldCoords[0][2] - cl_world.worldCoords[0][0]) #(Xvmax−Xvmin)/(Xwmax−Xwmin)
+        YworldCoordinates = (cl_world.worldCoords[0][3] - cl_world.worldCoords[0][1]) #(Yvmax−Yvmin)/(Ywmax−Ywmin)
 
         #Draw points for every camera that is currently loaded
         for camera in cl_world.cameras:
+            verticies, patches = camera.applyComposite()
             vminX = int(self.canvas.winfo_width() * camera.viewPort[0])
             vminY = int(self.canvas.winfo_height() * camera.viewPort[1])
             vmaxX = int(self.canvas.winfo_width() * camera.viewPort[2])
             vmaxY = int(self.canvas.winfo_height() * camera.viewPort[3])
 
-            Sx = (vmaxX - vminX) / (cl_world.worldCoords[0][2] - cl_world.worldCoords[0][0]) #(Xvmax−Xvmin)/(Xwmax−Xwmin)
-            Sy = (vmaxY - vminY) / (cl_world.worldCoords[0][3] - cl_world.worldCoords[0][1]) #(Yvmax−Yvmin)/(Ywmax−Ywmin)
+            Sx = (vmaxX - vminX) / XworldCoordinates
+            Sy = (vmaxY - vminY) / YworldCoordinates
 
             self.canvas.create_text(vminX + .80, vminY, anchor='nw', text=camera.name, fill="black", font=("Arial", 10))
             self.canvas.create_rectangle(vminX, vminY, vmaxX, vmaxY)
 
             for face in cl_world.faces:
-                x0, y0, z0, w0 = camera.verticies[face[0] - 1]
-                x1, y1, z1, w1 = camera.verticies[face[1] - 1]
-                x2, y2, z2, w2 = camera.verticies[face[2] - 1]
+                x0, y0, z0, w0 = verticies[face[0] - 1]
+                x1, y1, z1, w1 = verticies[face[1] - 1]
+                x2, y2, z2, w2 = verticies[face[2] - 1]
 
                 planeDirection = camera.backFaceCulling((x0, y0, z0), (x1, y1, z1), (x2, y2, z2))
 
@@ -205,16 +212,14 @@ class cl_world:
                                                 self.calculateX(line3[3], Sx, vminX), self.calculateY(line3[4], Sy, vminY))  
 
             #Send points for a patch to calculate patch, get returned triangles and render them on canvas.
-            for patch in camera.patches:
-
-                '''Fix patch clipping, lines being deleted instead of clipped for some planes'''
+            for patch in patches:
                 triangles = self.calculatePatch(patch)
                 for triangle in triangles:
                     x0, y0, z0 = triangle[0]
                     x1, y1, z1 = triangle[1]
                     x2, y2, z2  = triangle[2]
 
-                    planeDirection = camera.backFaceCulling((x0, y0, z0), (x1, y1, z1), (x2, y2, z2))
+                    planeDirection = camera.backFaceCulling((x1, y1, z1), (x0, y0, z0), (x2, y2, z2))
 
                     if(planeDirection >= 0):
                         continue
@@ -242,14 +247,6 @@ class cl_world:
     def calculatePatch(self, patch):
         triangles = []
         points = []
-
-        #Create bezier matrix for patches
-        bezierMatrix = np.array([[-1, 3, -3, 1],
-                                 [3, -6, 3, 0],
-                                 [-3, 3, 0, 0],
-                                 [1, 0, 0, 0]])
-
-        bezierMatrixTranspose = np.transpose(bezierMatrix)
 
         #Make geometry vector for x, y, and z from the given patch.
         Gx = np.array([[patch[0][0], patch[1][0], patch[2][0], patch[3][0]],
@@ -280,9 +277,9 @@ class cl_world:
                                  [uCoordinate],
                                  [1]])
 
-                Px = vMat @ bezierMatrixTranspose @ Gx @ bezierMatrix @ uMat
-                Py = vMat @ bezierMatrixTranspose @ Gy @ bezierMatrix @ uMat
-                Pz = vMat @ bezierMatrixTranspose @ Gz @ bezierMatrix @ uMat
+                Px = vMat @ BEZIER_MATRIX_T @ Gx @ BEZIER_MATRIX @ uMat
+                Py = vMat @ BEZIER_MATRIX_T @ Gy @ BEZIER_MATRIX @ uMat
+                Pz = vMat @ BEZIER_MATRIX_T @ Gz @ BEZIER_MATRIX @ uMat
 
                 #Could change the way the data structure is appended to, to make it easier for understanding on how to get the 4 points
                 points.append([Px[0][0], Py[0][0], Pz[0][0]])
@@ -395,22 +392,21 @@ class Camera(ABC):
         self.viewVol = viewVol
         self.viewPort = viewPort
         self.composite = self.calculateComposite()
-        self.verticies = np.array([], dtype=float)
-        self.patches = np.array([], dtype=float)
 
     #Applies composite matrix to the copy of the cameras points.
     def applyComposite(self):
-        self.verticies = np.copy(cl_world.verticies)
-        self.patches = np.copy(cl_world.patches)
+        verticies = np.copy(cl_world.verticies)
+        patches = np.copy(cl_world.patches)
 
-        for i, point in enumerate(self.verticies):
-            self.verticies[i] = self.composite.dot(point)
+        for i, point in enumerate(verticies):
+            verticies[i] = self.composite.dot(point)
 
-        for patch in self.patches:
+        for patch in patches:
             for i , point in enumerate(patch):
                 patch[i] = self.composite.dot(point)
-               
 
+        return (verticies, patches)
+               
     #Just used for debugging not really used in program as of now.
     def printCameraInfo(self):
         print("Camera name: \n", self.name)
@@ -422,6 +418,20 @@ class Camera(ABC):
         print("Camera viewVolume: \n",self.viewVol)
         print("Camera viewPort: \n",self.viewPort)
         print("Camera composite: \n", self.composite)
+
+    def getNormal(self, point1, point2, point3):
+        x0, y0, z0 = point1
+        x1, y1, z1 = point2
+        x2, y2, z2 = point3
+        firstLine = np.array([x1 - x0, y1 - y0, z1 - z0])
+        secondLine = np.array([x2 - x0, y2 - y0, z2 - z0])
+        return self.normalize(np.cross(firstLine, secondLine))
+
+    def normalize(self, vector):
+        magnitude = np.linalg.norm(vector)
+        if magnitude == 0:
+            return np.array([0, 0, 0])
+        return vector / magnitude
 
     #Calculate the composite matrix of the provided camera values. (Most likely will need to change the function depending on camera type.)
     @abstractmethod
@@ -439,20 +449,6 @@ class Camera(ABC):
     @abstractmethod
     def backFaceCulling(self):
         pass
-
-    def getNormal(self, point1, point2, point3):
-        x0, y0, z0 = point1
-        x1, y1, z1 = point2
-        x2, y2, z2 = point3
-        firstLine = np.array([x1 - x0, y1 - y0, z1 - z0])
-        secondLine = np.array([x2 - x0, y2 - y0, z2 - z0])
-        return self.normalize(np.cross(firstLine, secondLine))
-
-    def normalize(self, vector):
-        magnitude = np.linalg.norm(vector)
-        if magnitude == 0:
-            return np.array([0, 0, 0])
-        return vector / magnitude
 
     
 '''Define two different types of Cameras, parallel and perspective that inheret from the abstract class Camera'''
@@ -885,7 +881,7 @@ class perspectiveCamera(Camera):
 
     def backFaceCulling(self, pointA, pointB, pointC):
         normal = self.getNormal((pointA[0],pointA[1],pointA[2]), (pointB[0], pointB[1], pointB[2]), (pointC[0], pointC[1], pointC[2]))
-        viewVector = self.normalize(np.array([pointA[0], pointA[1],pointA[2]]))
+        viewVector = self.normalize(np.array([pointA[0], pointA[1], pointA[2]]))
         result = np.dot(normal, viewVector)
         
         if(result > 0):
